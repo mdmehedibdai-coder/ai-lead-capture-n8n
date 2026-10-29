@@ -1,0 +1,254 @@
+{
+  "name": "Lead Error Handler",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "d35a5950-45e6-4912-ac46-a3e54d88dd12",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const e = $json.execution || {};\nconst w = $json.workflow || {};\n\n// গোপন তথ্য ও ব্যক্তিগত তথ্য মুছে ফেলা + দৈর্ঘ্য সীমিত\nconst redact = (s) => String(s ?? '')\n  .replace(/\\b\\d{6,}:[A-Za-z0-9_-]{30,}\\b/g, '[REDACTED_TOKEN]')\n  .replace(/\\bsk-[A-Za-z0-9_-]{10,}\\b/g, '[REDACTED_KEY]')\n  .replace(/Bearer\\s+[A-Za-z0-9._~+\\/-]+=*/gi, 'Bearer [REDACTED]')\n  .replace(/[\\w.+-]+@[\\w-]+\\.[\\w.-]+/g, '[REDACTED_EMAIL]')\n  .slice(0, 300);\n\nconst workflowName = redact(w.name);\nconst failedNode = redact(e.lastNodeExecuted);\nconst errorMessage = redact(e.error?.message);\nconst url = String(e.url || '');\n\nconst alertText = [\n  '🛑 WORKFLOW ERROR',\n  `Workflow: ${workflowName}`,\n  `Failed node: ${failedNode}`,\n  `Error: ${errorMessage}`,\n  `Execution: ${url}`\n].join('\\n');\n\nreturn {\n  json: {\n    timestamp: new Date().toISOString(),\n    workflow_name: workflowName,\n    workflow_id: String(w.id || ''),\n    execution_id: String(e.id || ''),\n    failed_node: failedNode,\n    error_message: errorMessage,\n    execution_url: url,\n    alert_text: alertText\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ],
+      "id": "df3bc4c5-ad36-4a1c-abbd-1bee2260e626",
+      "name": "Format Error Alert"
+    },
+    {
+      "parameters": {
+        "chatId": "5183799755",
+        "text": "={{ $json.alert_text }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        448,
+        0
+      ],
+      "id": "0ef0c6ab-5006-4e42-8e87-85d455f651a3",
+      "name": "Alert Admin",
+      "webhookId": "fef4e2bd-a93d-4c42-b406-1608c510e6c4",
+      "alwaysOutputData": false,
+      "credentials": {
+        "telegramApi": {
+          "id": "2eQu0717fJJOtOXV",
+          "name": "Telegram - Lead Bot"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "ZUwZBSBMKFjT1E9I",
+          "mode": "list",
+          "cachedResultName": "Error_Log",
+          "cachedResultUrl": "/projects/jD1gEtpMoagHmpnA/datatables/ZUwZBSBMKFjT1E9I"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ $('Format Error Alert').item.json.timestamp }}",
+            "workflow_name": "={{ $('Format Error Alert').item.json.workflow_name }}",
+            "workflow_id": "={{ $('Format Error Alert').item.json.workflow_id }}",
+            "execution_id": "={{ $('Format Error Alert').item.json.execution_id }}",
+            "failed_node": "={{ $('Format Error Alert').item.json.failed_node }}",
+            "error_message": "={{ $('Format Error Alert').item.json.error_message }}",
+            "execution_url": "={{ $('Format Error Alert').item.json.execution_url }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "workflow_name",
+              "displayName": "workflow_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "workflow_id",
+              "displayName": "workflow_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "execution_id",
+              "displayName": "execution_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "failed_node",
+              "displayName": "failed_node",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "error_message",
+              "displayName": "error_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "execution_url",
+              "displayName": "execution_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        672,
+        0
+      ],
+      "id": "d929d665-d2f6-4467-b0b3-84b91bdfd1be",
+      "name": "Log Error"
+    }
+  ],
+  "pinData": {
+    "Error Trigger": [
+      {
+        "json": {
+          "execution": {
+            "id": "205",
+            "url": "https://hbrr.app.n8n.cloud/workflow/xlGeFSIBH3JXaF1r/executions/205",
+            "error": {
+              "level": "info",
+              "shouldReport": false,
+              "description": null,
+              "tags": {},
+              "name": "WrappedExecutionError",
+              "lineNumber": 1,
+              "message": "Deliberate test [line 1]",
+              "stack": "WrappedExecutionError: Deliberate test [line 1]\n    at throwExecutionError (/usr/local/lib/node_modules/n8n/node_modules/.pnpm/n8n-nodes-base@file++++home+runner+_work+n8n+n8n+packages+nodes-base/node_modules/n8n-nodes-base/nodes/Code/throw-execution-error.ts:11:9)\n    at JsTaskRunnerSandbox.runCodeAllItems (/usr/local/lib/node_modules/n8n/node_modules/.pnpm/n8n-nodes-base@file++++home+runner+_work+n8n+n8n+packages+nodes-base/node_modules/n8n-nodes-base/nodes/Code/JsTaskRunnerSandbox.ts:46:23)\n    at processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at ExecuteContext.execute (/usr/local/lib/node_modules/n8n/node_modules/.pnpm/n8n-nodes-base@file++++home+runner+_work+n8n+n8n+packages+nodes-base/node_modules/n8n-nodes-base/nodes/Code/Code.node.ts:219:8)\n    at WorkflowExecute.executeNode (/usr/local/lib/node_modules/n8n/node_modules/.pnpm/n8n-core@file++++home+runner+_work+n8n+n8n+packages+core/node_modules/n8n-core/src/execution-engine/workflow-execute.ts:1154:8)\n    at WorkflowExecute.runNode (/usr/local/lib/node_modules/n8n/node_modules/.pnpm/n8n-core@file++++home+runner+_work+n8n+n8n+packages+core/node_modules/n8n-core/src/execution-engine/workflow-execute.ts:1456:11)\n    at /usr/local/lib/node_modules/n8n/node_modules/.pnpm/n8n-core@file++++home+runner+_work+n8n+n8n+packages+core/node_modules/n8n-core/src/execution-engine/workflow-execute.ts:2383:27\n    at /usr/local/lib/node_modules/n8n/node_modules/.pnpm/n8n-core@file++++home+runner+_work+n8n+n8n+packages+core/node_modules/n8n-core/src/execution-engine/workflow-execute.ts:2864:11"
+            },
+            "lastNodeExecuted": "Code in JavaScript",
+            "mode": "webhook",
+            "executionContext": {
+              "version": 1,
+              "establishedAt": 1793205804211,
+              "source": "webhook",
+              "triggerNode": {
+                "name": "Webhook",
+                "type": "n8n-nodes-base.webhook"
+              },
+              "redaction": {
+                "version": 2,
+                "production": false,
+                "manual": false
+              }
+            }
+          },
+          "workflow": {
+            "id": "xlGeFSIBH3JXaF1r",
+            "name": "Error Test"
+          }
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Format Error Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Error Alert": {
+      "main": [
+        [
+          {
+            "node": "Alert Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Admin": {
+      "main": [
+        [
+          {
+            "node": "Log Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "84d90d40-e8d4-46d7-92dd-0863823e768f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "67ea4f1c8a0d285fae08efec8dd0ea7321ff97594223dbaa2e5ddc3519721036"
+  },
+  "nodeGroups": [],
+  "id": "q3codpVTlcymscoU",
+  "tags": []
+}

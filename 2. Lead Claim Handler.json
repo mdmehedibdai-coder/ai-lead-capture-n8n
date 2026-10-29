@@ -1,0 +1,856 @@
+{
+  "name": "2. Lead Claim Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "callback_query"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        0,
+        0
+      ],
+      "id": "c279e4bd-21fc-422d-8afd-441d1e1d6209",
+      "name": "Telegram Trigger - Claim",
+      "webhookId": "a25518c4-0ee9-4adf-8cec-4a359f5eb1e8",
+      "credentials": {
+        "telegramApi": {
+          "id": "2eQu0717fJJOtOXV",
+          "name": "Telegram - Lead Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// ===== CONFIG =====\nconst ALLOWED_CHAT_ID = '5183799755';   // আসল Chat ID, quote-এর ভেতরে, minus চিহ্ন সহ\nconst ALLOWED_USER_IDS = ['5183799755'];    // আসল User ID\n\nconst cq = $json.callback_query || {};\nconst data = String(cq.data || '');\nconst m = data.match(/^claim:(L-[A-Z0-9]+)$/);   // কেবল প্রত্যাশিত ফরম্যাট\n\nconst chatId = String(cq.message?.chat?.id ?? '');\nconst userId = String(cq.from?.id ?? '');\nconst authorized =\n  chatId === ALLOWED_CHAT_ID &&\n  (ALLOWED_USER_IDS.length === 0 || ALLOWED_USER_IDS.includes(userId));\n\nconst f = cq.from || {};\nconst claimerName =\n  [f.first_name, f.last_name].filter(Boolean).join(' ') || f.username || userId;\n\nreturn {\n  json: {\n    valid: Boolean(m) && authorized,\n    lead_id: m ? m[1] : '',\n    query_id: cq.id || '',\n    chat_id: chatId,\n    message_id: cq.message?.message_id,\n    orig_text: cq.message?.text || '',\n    claimer_name: claimerName\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ],
+      "id": "66001835-b35c-4319-b929-87d007264b7b",
+      "name": "Code for Parse Claim"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "0d3c0de6-57b3-4f4f-b4bd-e1eeafa786b8",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        448,
+        0
+      ],
+      "id": "34876541-203e-49f7-a0e8-cfb15714b5f9",
+      "name": "Is Valid Claim?"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "wTauF7sfmmYKrFQd",
+          "mode": "list",
+          "cachedResultName": "Lead Capture DB",
+          "cachedResultUrl": "/projects/jD1gEtpMoagHmpnA/datatables/wTauF7sfmmYKrFQd"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "lead_id",
+              "keyValue": "={{ $json.lead_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        672,
+        -96
+      ],
+      "id": "99f41ad6-946e-42a0-82ad-42777c689ab6",
+      "name": "Get Lead Data",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "37f0519d-3f58-4a07-b176-6cf46519e2d5",
+              "leftValue": "={{ $json.lead_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "51b33c4f-4990-495b-860d-fac18ce03fd2",
+              "leftValue": "={{ $json.claimed_at }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        896,
+        -96
+      ],
+      "id": "89e0e6ad-5f30-493a-8619-d938cf1111fe",
+      "name": "Can Claim?"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "wTauF7sfmmYKrFQd",
+          "mode": "list",
+          "cachedResultName": "Lead Capture DB",
+          "cachedResultUrl": "/projects/jD1gEtpMoagHmpnA/datatables/wTauF7sfmmYKrFQd"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "lead_id",
+              "keyValue": "={{ $('Code for Parse Claim').item.json.lead_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "claimed_at": "={{ $now.toISO() }}",
+            "assigned_to": "={{ $('Code for Parse Claim').item.json.claimer_name }}",
+            "status": "claimed"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "lead_id",
+              "displayName": "lead_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "service_interest",
+              "displayName": "service_interest",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "budget",
+              "displayName": "budget",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "timeline",
+              "displayName": "timeline",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "rule_score",
+              "displayName": "rule_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ai_category",
+              "displayName": "ai_category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ai_confidence",
+              "displayName": "ai_confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ai_reason",
+              "displayName": "ai_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "next_action",
+              "displayName": "next_action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "final_category",
+              "displayName": "final_category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "assigned_to",
+              "displayName": "assigned_to",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "claimed_at",
+              "displayName": "claimed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "last_seen_at",
+              "displayName": "last_seen_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "duplicate_count",
+              "displayName": "duplicate_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "last_message",
+              "displayName": "last_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "last_error",
+              "displayName": "last_error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "rule_category",
+              "displayName": "rule_category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "score_breakdown",
+              "displayName": "score_breakdown",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "review_reason",
+              "displayName": "review_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "language",
+              "displayName": "language",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "reply_sent_at",
+              "displayName": "reply_sent_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "escalated_at",
+              "displayName": "escalated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        -192
+      ],
+      "id": "48f60715-f8c4-4a8c-826c-768f23419e97",
+      "name": "Update - Claim Lead"
+    },
+    {
+      "parameters": {
+        "resource": "callback",
+        "queryId": "={{ $('Code for Parse Claim').item.json.query_id }}",
+        "additionalFields": {
+          "text": "Claimed ✅"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1344,
+        -192
+      ],
+      "id": "6ecba8cc-b72e-4547-8802-d090cc089025",
+      "name": "Answer Query - Claimed",
+      "webhookId": "8a28ed54-0e4b-40c5-8089-4c315cb81ba1",
+      "credentials": {
+        "telegramApi": {
+          "id": "2eQu0717fJJOtOXV",
+          "name": "Telegram - Lead Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "editMessageText",
+        "chatId": "={{ $('Code for Parse Claim').item.json.chat_id }}",
+        "messageId": "={{ $('Code for Parse Claim').item.json.message_id }}",
+        "text": "={{ $('Code for Parse Claim').item.json.orig_text + \"\\n\\n✅ Claimed by \" + $('Code for Parse Claim').item.json.claimer_name }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1568,
+        -192
+      ],
+      "id": "ed203da2-1a44-4315-ae8b-dce0f1085131",
+      "name": "Update Alert Message",
+      "webhookId": "ebacc92c-d806-408b-9561-105aff77aef8",
+      "credentials": {
+        "telegramApi": {
+          "id": "2eQu0717fJJOtOXV",
+          "name": "Telegram - Lead Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "callback",
+        "queryId": "={{ $json.query_id }}",
+        "additionalFields": {
+          "text": "Not authorized"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        672,
+        96
+      ],
+      "id": "b95cccd9-924a-4adf-b63a-52a950b7d33d",
+      "name": "Answer Query - Denied",
+      "webhookId": "fcf4f424-3670-4941-bed7-0f57a4822e41",
+      "credentials": {
+        "telegramApi": {
+          "id": "2eQu0717fJJOtOXV",
+          "name": "Telegram - Lead Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "callback",
+        "queryId": "={{ $('Code for Parse Claim').item.json.query_id }}",
+        "additionalFields": {
+          "text": "Already claimed or lead not found"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1120,
+        0
+      ],
+      "id": "f7791cef-78fb-4b38-978c-d5abcd525457",
+      "name": "Answer Query - Already Claimed",
+      "webhookId": "5baf19c7-65cb-4626-b2ca-4756973dfba0",
+      "credentials": {
+        "telegramApi": {
+          "id": "2eQu0717fJJOtOXV",
+          "name": "Telegram - Lead Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "g3Pa2P6u1kjeTzDQ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/g3Pa2P6u1kjeTzDQ",
+          "cachedResultName": "Log Event"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "event": "claimed",
+            "lead_id": "={{ $('Code for Parse Claim').item.json.lead_id }}",
+            "details": "=by={{ $('Code for Parse Claim').item.json.claimer_name }}",
+            "workflow": "={{ $workflow.name }}",
+            "execution_id": "={{ $execution.id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "lead_id",
+              "displayName": "lead_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "event",
+              "displayName": "event",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "details",
+              "displayName": "details",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "execution_id",
+              "displayName": "execution_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        1792,
+        -192
+      ],
+      "id": "54e60862-6b7e-41c3-8bac-1d1360517987",
+      "name": "Log - Claimed"
+    }
+  ],
+  "pinData": {
+    "Telegram Trigger - Claim": [
+      {
+        "json": {
+          "update_id": 662699224,
+          "callback_query": {
+            "id": "3817506345909020077",
+            "from": {
+              "id": 5183799755,
+              "is_bot": false,
+              "first_name": "MD. MEHEDI",
+              "last_name": "HASAN",
+              "language_code": "en"
+            },
+            "message": {
+              "message_id": 710,
+              "from": {
+                "id": 8722942073,
+                "is_bot": true,
+                "first_name": "Hotel & Restaurent",
+                "username": "hotrestbbot"
+              },
+              "chat": {
+                "id": 5183799755,
+                "first_name": "MD. MEHEDI",
+                "last_name": "HASAN",
+                "type": "private"
+              },
+              "date": 1793097792,
+              "text": "🔥 HOT LEAD\nName: Rahim Uddin\nCompany: Acme Ltd\nEmail: t66@gmail.com\nPhone: +8801700000000\nBudget: 30000 | Timeline: next week\nScore: rule 70 (hot) | AI hot (0.95)\nWhy: The lead has a clear and specific interest in a website service with a significant budget of 30,000 dollars and a very urgent timeline ('next week'). The message also expresses urgency to start within the current month, indicating a high readiness to proceed.\nNext: Contact Rahim Uddin immediately to discuss the project details and confirm the timeline and requirements.\nMessage: আমাদের কোম্পানির জন্য একটি ওয়েবসাইট দরকার, বাজেট ৩০০০০ ডলার, এই মাসেই শুরু করতে চাই।\nLead ID: L-MVQK4HQR72S",
+              "entities": [
+                {
+                  "offset": 55,
+                  "length": 13,
+                  "type": "email"
+                },
+                {
+                  "offset": 76,
+                  "length": 14,
+                  "type": "phone_number"
+                }
+              ],
+              "reply_markup": {
+                "inline_keyboard": [
+                  [
+                    {
+                      "text": "✅ Claim",
+                      "callback_data": "claim:L-MVQK4HQR72S"
+                    }
+                  ]
+                ]
+              }
+            },
+            "chat_instance": "4369533702514162670",
+            "data": "claim:L-MVQK4HQR72S"
+          }
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Telegram Trigger - Claim": {
+      "main": [
+        [
+          {
+            "node": "Code for Parse Claim",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code for Parse Claim": {
+      "main": [
+        [
+          {
+            "node": "Is Valid Claim?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Valid Claim?": {
+      "main": [
+        [
+          {
+            "node": "Get Lead Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Answer Query - Denied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Lead Data": {
+      "main": [
+        [
+          {
+            "node": "Can Claim?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Can Claim?": {
+      "main": [
+        [
+          {
+            "node": "Update - Claim Lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Answer Query - Already Claimed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update - Claim Lead": {
+      "main": [
+        [
+          {
+            "node": "Answer Query - Claimed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Answer Query - Claimed": {
+      "main": [
+        [
+          {
+            "node": "Update Alert Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Alert Message": {
+      "main": [
+        [
+          {
+            "node": "Log - Claimed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "q3codpVTlcymscoU",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "51e2fb53-30c6-491d-b19c-28e85b064092",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "67ea4f1c8a0d285fae08efec8dd0ea7321ff97594223dbaa2e5ddc3519721036"
+  },
+  "nodeGroups": [],
+  "id": "7Wv9fFCv4siiYTam",
+  "tags": []
+}
